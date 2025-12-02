@@ -198,3 +198,198 @@ window.addEventListener("scroll", () => {
   });
   scrollTicking = true;
 });
+
+const clientsTrack = document.querySelector(".clients-carousel__track");
+const clientCards = Array.from(document.querySelectorAll(".client-card"));
+const clientsPrevButton = document.querySelector(".clients-carousel__nav--prev");
+const clientsNextButton = document.querySelector(".clients-carousel__nav--next");
+const clientOverlay = document.querySelector(".client-overlay");
+const clientOverlayImage = clientOverlay?.querySelector(".client-overlay__logo img");
+const clientOverlaySummary = clientOverlay?.querySelector(".client-overlay__summary");
+const clientOverlayDescription = clientOverlay?.querySelector(".client-overlay__description");
+const clientOverlayClose = clientOverlay?.querySelector(".client-overlay__close");
+const clientOverlayBackdrop = clientOverlay?.querySelector("[data-client-overlay-close]");
+const clientOverlayPrev = clientOverlay?.querySelector(".client-overlay__arrow--prev");
+const clientOverlayNext = clientOverlay?.querySelector(".client-overlay__arrow--next");
+const clientOverlayTitle = document.getElementById("client-overlay-title");
+let activeClientIndex = null;
+
+const getClientCardScrollAmount = () => {
+  if (!clientsTrack) {
+    return 0;
+  }
+  const firstCard = clientsTrack.querySelector(".client-card");
+  if (!firstCard) {
+    return clientsTrack.clientWidth;
+  }
+  const cardWidth = firstCard.getBoundingClientRect().width;
+  const styles = window.getComputedStyle(clientsTrack);
+  const gap = parseFloat(styles.columnGap || styles.gap || "0") || 0;
+  return cardWidth + gap;
+};
+
+const scrollClientsTrack = (direction) => {
+  if (!clientsTrack) {
+    return;
+  }
+  const amount = getClientCardScrollAmount();
+  const behavior = prefersReducedMotion.matches ? "auto" : "smooth";
+  clientsTrack.scrollBy({
+    left: direction * amount,
+    behavior,
+  });
+};
+
+const updateCarouselNavState = () => {
+  if (!clientsTrack) {
+    return;
+  }
+  const maxScrollLeft = clientsTrack.scrollWidth - clientsTrack.clientWidth - 2;
+  const disablePrev = clientsTrack.scrollLeft <= 0;
+  const disableNext = clientsTrack.scrollLeft >= maxScrollLeft;
+  if (clientsPrevButton) {
+    clientsPrevButton.disabled = disablePrev;
+  }
+  if (clientsNextButton) {
+    clientsNextButton.disabled = disableNext;
+  }
+};
+
+clientsPrevButton?.addEventListener("click", () => {
+  scrollClientsTrack(-1);
+});
+
+clientsNextButton?.addEventListener("click", () => {
+  scrollClientsTrack(1);
+});
+
+clientsTrack?.addEventListener("scroll", () => {
+  window.requestAnimationFrame(updateCarouselNavState);
+});
+
+window.addEventListener("resize", updateCarouselNavState);
+updateCarouselNavState();
+
+const fillClientOverlay = (index) => {
+  if (!clientOverlay) {
+    return;
+  }
+  const card = clientCards[index];
+  if (!card) {
+    return;
+  }
+  const { name, summary, detail, logo, logoAlt } = card.dataset;
+  const cardTitle = card.querySelector("h3")?.textContent?.trim();
+  const cardSummary = card.querySelector("p")?.textContent?.trim();
+  const cardImage = card.querySelector("img");
+
+  if (clientOverlayImage) {
+    const src =
+      logo || cardImage?.getAttribute("src") || clientOverlayImage.getAttribute("src") || "";
+    clientOverlayImage.setAttribute("src", src);
+    const altText =
+      logoAlt ||
+      cardImage?.getAttribute("alt") ||
+      `${name ?? cardTitle ?? "Client"} logo`;
+    clientOverlayImage.setAttribute("alt", altText);
+  }
+
+  if (clientOverlayTitle) {
+    clientOverlayTitle.textContent = name || cardTitle || "Client";
+  }
+
+  if (clientOverlaySummary) {
+    clientOverlaySummary.textContent = summary || cardSummary || "";
+  }
+
+  if (clientOverlayDescription) {
+    clientOverlayDescription.textContent =
+      detail || summary || cardSummary || "";
+  }
+
+  if (clientOverlayPrev) {
+    clientOverlayPrev.disabled = index === 0;
+  }
+
+  if (clientOverlayNext) {
+    clientOverlayNext.disabled = index === clientCards.length - 1;
+  }
+};
+
+const openClientOverlay = (index) => {
+  if (!clientOverlay || !clientCards.length) {
+    return;
+  }
+  activeClientIndex = index;
+  fillClientOverlay(index);
+  clientOverlay.classList.add("is-visible");
+  clientOverlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("client-overlay-open");
+};
+
+const closeClientOverlay = () => {
+  if (!clientOverlay) {
+    return;
+  }
+  clientOverlay.classList.remove("is-visible");
+  clientOverlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("client-overlay-open");
+  activeClientIndex = null;
+};
+
+const navigateClientOverlay = (direction) => {
+  if (activeClientIndex === null) {
+    return;
+  }
+  const nextIndex = activeClientIndex + direction;
+  if (nextIndex < 0 || nextIndex >= clientCards.length) {
+    return;
+  }
+  activeClientIndex = nextIndex;
+  fillClientOverlay(nextIndex);
+};
+
+clientCards.forEach((card, index) => {
+  card.addEventListener("click", (event) => {
+    if (event.target.closest(".client-card__cta")) {
+      return;
+    }
+    openClientOverlay(index);
+  });
+
+  const cta = card.querySelector(".client-card__cta");
+  cta?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openClientOverlay(index);
+  });
+});
+
+clientOverlayClose?.addEventListener("click", () => {
+  closeClientOverlay();
+});
+
+clientOverlayBackdrop?.addEventListener("click", () => {
+  closeClientOverlay();
+});
+
+clientOverlayPrev?.addEventListener("click", () => {
+  navigateClientOverlay(-1);
+});
+
+clientOverlayNext?.addEventListener("click", () => {
+  navigateClientOverlay(1);
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeClientOverlay();
+  }
+  if (!clientOverlay?.classList.contains("is-visible")) {
+    return;
+  }
+  if (event.key === "ArrowRight") {
+    navigateClientOverlay(1);
+  } else if (event.key === "ArrowLeft") {
+    navigateClientOverlay(-1);
+  }
+});
